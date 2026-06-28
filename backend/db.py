@@ -77,6 +77,21 @@ def update_application_status(id, status):
     cur.close()
     conn.close()
 
+def find_applications_by_company(company):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, company, role, status
+        FROM applications
+        WHERE LOWER(company) LIKE LOWER(%s)
+        AND status NOT IN ('rejected', 'offer')
+        ORDER BY created_at DESC
+    """, (f'%{company}%',))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
 def nudge_already_sent(reference_id, reference_type, nudge_type):
     conn = get_connection()
     cur = conn.cursor()
