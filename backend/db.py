@@ -1,5 +1,6 @@
 import psycopg2
 import os
+from datetime import date
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,7 +8,7 @@ load_dotenv()
 def get_connection():
     return psycopg2.connect(os.getenv("NEON_DATABASE_URL"))
 
-def add_application(company, role, notes):
+def add_application(company, role, notes=None):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -22,6 +23,8 @@ def add_application(company, role, notes):
     return id
 
 def add_deadline(title, due_date, category='academic'):
+    if isinstance(due_date, str):
+        due_date = date.fromisoformat(due_date)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -39,7 +42,7 @@ def get_pending_applications():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, company, role, date_applied, follow_up_date, notes
+        SELECT id, company, role, date_applied, follow_up_date
         FROM applications
         WHERE status = 'applied'
         ORDER BY follow_up_date ASC
@@ -103,7 +106,7 @@ def get_latest_activity():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, last_github_commit_date, last_linkedin_post_date, checked_at
+        SELECT last_github_commit_date, last_linkedin_post_date, checked_at
         FROM activity_log
         ORDER BY checked_at DESC
         LIMIT 1
