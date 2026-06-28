@@ -10,17 +10,20 @@ logger = logging.getLogger(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 RSS_FEEDS = {
-    "research": [
-        "https://hnrss.org/newest?q=AI+ML+LLM&points=50",
-        "https://feeds.feedburner.com/blogspot/gJZg",  # Google AI Blog
+    "ai_companies": [
+        "https://openai.com/blog/rss.xml",
+        "https://www.anthropic.com/rss.xml",
+        "https://deepmind.google/blog/rss.xml",
+        "https://ai.meta.com/blog/rss/",
     ],
-    "industry": [
-        "https://venturebeat.com/category/ai/feed/",
-        "https://hnrss.org/newest?q=startup+funding+AI&points=100",
+    "india_tech": [
+        "https://yourstory.com/tag/artificial-intelligence/feed",
+        "https://inc42.com/feed/",
     ],
-    "dev_tools": [
-        "https://hnrss.org/newest?q=developer+tools+AI&points=50",
+    "dev_builds": [
+        "https://hnrss.org/show?points=50",
         "https://dev.to/feed/tag/ai",
+        "https://towardsdatascience.com/feed",
     ]
 }
 
@@ -94,9 +97,9 @@ News items:
 def fetch_daily_brief() -> str:
     message = "📰 *Daily AI/ML Brief*\n\n"
     sections = {
-        "🔬 Research & Papers": "research",
-        "🚀 Industry News": "industry",
-        "🛠 Dev Tools": "dev_tools"
+    "🤖 AI Companies": "ai_companies",
+    "🇮🇳 India Tech": "india_tech",
+    "🛠 Dev Builds": "dev_builds"
     }
 
     any_content = False
@@ -122,5 +125,5 @@ def fetch_daily_brief() -> str:
     if not any_content:
         return None
 
-    message += "_Sources: Hacker News, VentureBeat, Google AI, Dev.to_"
+    message += "_Sources: OpenAI, Anthropic, DeepMind, Meta AI, YourStory, Inc42, HN, Dev.to_"
     return message
