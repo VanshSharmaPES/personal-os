@@ -268,7 +268,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"✅ Deadline saved!\n"
                 f"Title: {result['title']}\n"
-                f"Due: {result['due_date'].strftime('%Y-%m-%d')}\n"
+                f"Due: {result['due_date']}\n"
                 f"Category: {result['category']}\n"
                 f"(ID: {deadline_id})\n"
                 f"Use /deadlines to view all deadlines",
