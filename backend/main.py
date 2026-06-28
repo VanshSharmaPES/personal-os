@@ -312,10 +312,16 @@ def run_health_server():
     loop.run_forever()
 
 
+async def post_init(application: Application):
+    scheduler = create_scheduler()
+    scheduler.start()
+    logger.info("Scheduler started")
+
+
 def main():
     threading.Thread(target=run_health_server, daemon=True).start()
 
-    application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
+    application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).post_init(post_init).build()
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("applications", applications_command))
@@ -326,10 +332,6 @@ def main():
     application.add_handler(CommandHandler("brief", brief_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
-
-    scheduler = create_scheduler()
-    scheduler.start()
-    logger.info("Scheduler started")
 
     logger.info("Starting PersonalOS Agent bot...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
