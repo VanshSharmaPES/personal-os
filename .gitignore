@@ -1,0 +1,8 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+.next/
+node_modules/
+venv/
+PERSONAL_OS_AGENT_PLAN.md
