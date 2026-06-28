@@ -73,14 +73,12 @@ async def applications_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     message = "📋 *Pending Applications:*\n\n"
     for app in applications:
-        app_id, company, role, date_applied, follow_up_date, notes = app
+        app_id, company, role, date_applied, follow_up_date = app
         message += f"*ID:* {app_id}\n"
         message += f"*Company:* {company}\n"
         message += f"*Role:* {role}\n"
         message += f"*Applied:* {date_applied.strftime('%Y-%m-%d')}\n"
         message += f"*Follow-up:* {follow_up_date.strftime('%Y-%m-%d')}\n"
-        if notes:
-            message += f"*Notes:* {notes[:100]}{'...' if len(notes) > 100 else ''}\n"
         message += "\n"
 
     await update.message.reply_text(message, parse_mode='Markdown')
@@ -185,7 +183,7 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += f"📋 *Applications* ({len(applications)} pending):\n"
     if applications:
         for app in applications[:5]:  # Show first 5
-            app_id, company, role, _, follow_up_date, _ = app
+            app_id, company, role, date_applied, follow_up_date = app
             message += f"  • {app_id}: {company} - {role} (Follow-up: {follow_up_date.strftime('%m/%d')})\n"
         if len(applications) > 5:
             message += f"  ... and {len(applications) - 5} more\n"
