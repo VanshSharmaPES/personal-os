@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from aiohttp import web
 import threading
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from scheduler import create_scheduler
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -293,6 +295,9 @@ def run_health_server():
 def main():
     threading.Thread(target=run_health_server, daemon=True).start()
     application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
+    scheduler = create_scheduler()
+    scheduler.start()
+    logger.info("Scheduler started")
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("applications", applications_command))
