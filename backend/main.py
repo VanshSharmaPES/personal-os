@@ -3,10 +3,9 @@ import os
 from datetime import datetime
 from aiohttp import web
 import threading
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from scheduler import create_scheduler
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from db import (
     get_connection, add_application, add_deadline, get_pending_applications,
@@ -14,6 +13,7 @@ from db import (
     mark_nudge_sent, get_latest_activity, upsert_activity, find_applications_by_company
 )
 from parser import parse_message
+from scheduler import create_scheduler
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -22,6 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 TELEGRAM_CHAT_ID = None
+
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global TELEGRAM_CHAT_ID
@@ -34,23 +35,25 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 I help you track:
 - Job applications
 - Academic/AIESEC/internship deadlines
-- GitHub & LinkedIn activity
+- GitHub activity (automated)
+- Daily AI/ML news brief
 
-*How to use:*
-Just send me messages like:
-  - "Applied to VectorShift for ML Engineer"
-  - "Capstone submission on 15th July 2026"
-  - "Got rejected from Peakflo"
-  - "Peakflo gave me an offer"
+*How to use — just message me:*
+  • "Applied to VectorShift for ML Engineer"
+  • "Capstone submission on 15th July 2026"
+  • "Got rejected from Peakflo"
+  • "Peakflo gave me an offer"
 
 *Commands:*
-/applications - View pending applications
-/deadlines - View upcoming deadlines
-/status [id] [status] - Manually update application status
-/done [id] - Mark a deadline as completed
-/summary - Full digest of everything
+/applications — View pending applications
+/deadlines — View upcoming deadlines
+/status [id] [status] — Manually update application status
+/done [id] — Mark a deadline as completed
+/summary — Full digest of everything
+/brief — Get today's AI/ML news brief
     """
     await update.message.reply_text(welcome_message, parse_mode='Markdown')
+
 
 async def applications_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     applications = get_pending_applications()
@@ -70,6 +73,7 @@ async def applications_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await update.message.reply_text(message, parse_mode='Markdown')
 
+
 async def deadlines_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     deadlines = get_upcoming_deadlines()
 
@@ -87,6 +91,7 @@ async def deadlines_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"*Due:* {due_date.strftime('%Y-%m-%d')} ({days_left} days left)\n\n"
 
     await update.message.reply_text(message, parse_mode='Markdown')
+
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) != 2:
@@ -118,6 +123,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error updating application status: {e}")
         await update.message.reply_text("❌ Failed to update application status.")
 
+
 async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) != 1:
         await update.message.reply_text(
@@ -137,13 +143,13 @@ async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         cur.close()
         conn.close()
-
         await update.message.reply_text(f"✅ Deadline #{deadline_id} marked as done!")
     except ValueError:
         await update.message.reply_text("❌ Deadline ID must be a number.")
     except Exception as e:
         logger.error(f"Error marking deadline as done: {e}")
         await update.message.reply_text("❌ Failed to mark deadline as done.")
+
 
 async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     applications = get_pending_applications()
@@ -179,14 +185,25 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if activity:
         github_date, linkedin_date, checked_at = activity
         github_str = github_date.strftime('%m/%d/%Y') if github_date else "No commits tracked yet"
-        linkedin_str = linkedin_date.strftime('%m/%d/%Y') if linkedin_date else "No posts tracked yet"
+        linkedin_str = linkedin_date.strftime('%m/%d/%Y') if linkedin_date else "Not tracked"
         message += f"  • GitHub: {github_str}\n"
         message += f"  • LinkedIn: {linkedin_str}\n"
         message += f"  • Last checked: {checked_at.strftime('%m/%d/%Y %H:%M')}\n"
     else:
-        message += "  No activity data yet — GitHub/LinkedIn monitor not run yet\n"
+        message += "  No activity data yet\n"
 
     await update.message.reply_text(message, parse_mode='Markdown')
+
+
+async def brief_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Fetching today's AI/ML brief... ⏳")
+    from news_fetcher import fetch_daily_brief
+    brief = fetch_daily_brief()
+    if brief:
+        await update.message.reply_text(brief, parse_mode='Markdown')
+    else:
+        await update.message.reply_text("❌ Could not fetch news right now. Try again later.")
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global TELEGRAM_CHAT_ID
@@ -268,11 +285,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• \"Applied to VectorShift for ML Engineer\"\n"
             "• \"Capstone submission on 15th July 2026\"\n"
             "• \"Got rejected from Peakflo\"\n\n"
-            "Or use /applications, /deadlines, /summary"
+            "Or use /applications, /deadlines, /summary, /brief"
         )
+
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Update {update} caused error {context.error}")
+
 
 def run_health_server():
     async def health(request):
@@ -292,12 +311,11 @@ def run_health_server():
     loop.run_until_complete(start())
     loop.run_forever()
 
+
 def main():
     threading.Thread(target=run_health_server, daemon=True).start()
+
     application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
-    scheduler = create_scheduler()
-    scheduler.start()
-    logger.info("Scheduler started")
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("applications", applications_command))
@@ -305,11 +323,17 @@ def main():
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("done", done_command))
     application.add_handler(CommandHandler("summary", summary_command))
+    application.add_handler(CommandHandler("brief", brief_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
 
+    scheduler = create_scheduler()
+    scheduler.start()
+    logger.info("Scheduler started")
+
     logger.info("Starting PersonalOS Agent bot...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == '__main__':
     main()

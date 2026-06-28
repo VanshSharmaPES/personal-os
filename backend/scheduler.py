@@ -1,15 +1,17 @@
 import os
 import logging
 import requests
+import random
 from datetime import datetime, date, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
 from db import (
     get_pending_applications, get_upcoming_deadlines,
-    nudge_already_sent, mark_nudge_sent, upsert_activity, get_latest_activity
+    nudge_already_sent, mark_nudge_sent, upsert_activity
 )
 from github_monitor import get_latest_commit_date
+from news_fetcher import fetch_daily_brief
 
 load_dotenv()
 
@@ -30,7 +32,7 @@ POST_IDEAS = [
     "What I learned building AI systems as a second-year CS student",
     "Multi-provider LLM routing: when to use Groq vs NVIDIA NIM and why",
     "How handwritten prescription OCR actually works — lessons from Sanjeevani AI",
-    "Why I think every CS student should build at least one production AI system",
+    "Why every CS student should build at least one production AI system",
     "The gap between AI demos and production systems — what nobody tells you",
     "Building in public as a student: what's worked, what hasn't",
     "How I used AWS Bedrock + Claude Code to speed up my development workflow",
@@ -177,7 +179,6 @@ async def check_github_activity():
         days_since = (today - latest_commit).days
         if days_since >= 5:
             if not nudge_already_sent(0, 'github', f'inactive_{today.isoformat()}'):
-                import random
                 post_idea = random.choice(POST_IDEAS)
                 message = (
                     f"👨‍💻 *GitHub Activity Alert*\n\n"
@@ -190,6 +191,18 @@ async def check_github_activity():
                 mark_nudge_sent(0, 'github', f'inactive_{today.isoformat()}')
     else:
         logger.info("Could not fetch GitHub commit date")
+
+
+async def send_daily_brief():
+    logger.info("Fetching daily AI/ML brief...")
+    try:
+        brief = fetch_daily_brief()
+        if brief:
+            send_telegram_message(brief)
+        else:
+            logger.info("No content fetched for daily brief")
+    except Exception as e:
+        logger.error(f"Daily brief failed: {e}")
 
 
 def create_scheduler() -> AsyncIOScheduler:
@@ -227,6 +240,15 @@ def create_scheduler() -> AsyncIOScheduler:
         hour=10,
         minute=0,
         id='check_github'
+    )
+
+    # Daily AI/ML brief — 9:00 AM IST
+    scheduler.add_job(
+        send_daily_brief,
+        'cron',
+        hour=9,
+        minute=0,
+        id='daily_brief'
     )
 
     return scheduler
