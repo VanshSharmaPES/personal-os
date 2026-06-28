@@ -1,6 +1,8 @@
 import logging
 import os
 from datetime import datetime
+from aiohttp import web
+import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -300,7 +302,26 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
     logger.error(f"Update {update} caused error {context.error}")
 
+def run_health_server():
+    async def health(request):
+        return web.Response(text="OK")
+    
+    app = web.Application()
+    app.router.add_get("/", health)
+    
+    async def start():
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
+        await site.start()
+    
+    import asyncio
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(start())
+    loop.run_forever()
+
 def main():
+    threading.Thread(target=run_health_server, daemon=True).start()
     """Start the bot."""
     # Create the Application
     application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
