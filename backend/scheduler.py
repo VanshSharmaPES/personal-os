@@ -1,7 +1,6 @@
 import os
 import logging
 import requests
-import random
 from datetime import datetime, date, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
@@ -11,7 +10,7 @@ from db import (
     nudge_already_sent, mark_nudge_sent, upsert_activity
 )
 from github_monitor import get_latest_commit_date
-from news_fetcher import fetch_daily_brief
+from news_fetcher import fetch_daily_brief, generate_post_idea
 
 load_dotenv()
 
@@ -20,24 +19,6 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")
-
-POST_IDEAS = [
-    "How we built a rotating API key pool for Groq + NVIDIA NIM to handle rate limits in Sanjeevani AI",
-    "Why MD5 caching cut our LLM API costs significantly in Sanjeevani AI",
-    "Building a two-stage LLM pipeline: Llama 4 Scout for OCR + Llama 3.3 70B for medical analysis",
-    "Fuzzy matching on a 2.5 lakh+ medicine dataset — how we made it fast enough for real-time use",
-    "Multilingual TTS across all 22 scheduled Indian languages using Microsoft Edge TTS",
-    "SHAP-based explainability in ClearTriage — why black-box triage models are dangerous",
-    "Building AlgoForge: running Judge0 + BullMQ for async code execution at scale",
-    "What I learned building AI systems as a second-year CS student",
-    "Multi-provider LLM routing: when to use Groq vs NVIDIA NIM and why",
-    "How handwritten prescription OCR actually works — lessons from Sanjeevani AI",
-    "Why every CS student should build at least one production AI system",
-    "The gap between AI demos and production systems — what nobody tells you",
-    "Building in public as a student: what's worked, what hasn't",
-    "How I used AWS Bedrock + Claude Code to speed up my development workflow",
-    "What AIESEC taught me about managing people that no CS course ever did",
-]
 
 
 def send_telegram_message(text: str):
@@ -179,12 +160,12 @@ async def check_github_activity():
         days_since = (today - latest_commit).days
         if days_since >= 5:
             if not nudge_already_sent(0, 'github', f'inactive_{today.isoformat()}'):
-                post_idea = random.choice(POST_IDEAS)
+                post_idea = generate_post_idea(GITHUB_USERNAME)
                 message = (
                     f"👨‍💻 *GitHub Activity Alert*\n\n"
                     f"No commits in *{days_since} days*.\n"
                     f"Last commit: {latest_commit.strftime('%B %d, %Y')}\n\n"
-                    f"💡 *LinkedIn post idea while you're at it:*\n"
+                    f"💡 *LinkedIn post idea:*\n"
                     f"_{post_idea}_"
                 )
                 send_telegram_message(message)
@@ -208,7 +189,6 @@ async def send_daily_brief():
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
 
-    # Morning digest — 8:00 AM IST daily
     scheduler.add_job(
         send_morning_digest,
         'cron',
@@ -217,7 +197,6 @@ def create_scheduler() -> AsyncIOScheduler:
         id='morning_digest'
     )
 
-    # Follow-up checks — every 6 hours
     scheduler.add_job(
         check_followups,
         'interval',
@@ -225,7 +204,6 @@ def create_scheduler() -> AsyncIOScheduler:
         id='check_followups'
     )
 
-    # Deadline reminders — every 6 hours
     scheduler.add_job(
         check_deadline_reminders,
         'interval',
@@ -233,7 +211,6 @@ def create_scheduler() -> AsyncIOScheduler:
         id='check_deadline_reminders'
     )
 
-    # GitHub activity — daily at 10:00 AM IST
     scheduler.add_job(
         check_github_activity,
         'cron',
@@ -242,7 +219,6 @@ def create_scheduler() -> AsyncIOScheduler:
         id='check_github'
     )
 
-    # Daily AI/ML brief — 9:00 AM IST
     scheduler.add_job(
         send_daily_brief,
         'cron',

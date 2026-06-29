@@ -5,7 +5,6 @@ from aiohttp import web
 import threading
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from db import (
     get_connection, add_application, add_deadline, get_pending_applications,
@@ -24,6 +23,12 @@ logger = logging.getLogger(__name__)
 TELEGRAM_CHAT_ID = None
 
 
+async def post_init(application: Application):
+    scheduler = create_scheduler()
+    scheduler.start()
+    logger.info("Scheduler started")
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global TELEGRAM_CHAT_ID
     TELEGRAM_CHAT_ID = update.effective_chat.id
@@ -38,7 +43,7 @@ I help you track:
 - GitHub activity (automated)
 - Daily AI/ML news brief
 
-*How to use — just message me:*
+*Just message me naturally:*
   • "Applied to VectorShift for ML Engineer"
   • "Capstone submission on 15th July 2026"
   • "Got rejected from Peakflo"
@@ -51,6 +56,7 @@ I help you track:
 /done [id] — Mark a deadline as completed
 /summary — Full digest of everything
 /brief — Get today's AI/ML news brief
+/postidea — Get a LinkedIn post idea based on your recent work
     """
     await update.message.reply_text(welcome_message, parse_mode='Markdown')
 
@@ -205,6 +211,17 @@ async def brief_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Could not fetch news right now. Try again later.")
 
 
+async def postidea_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Generating a post idea based on your recent work... ⏳")
+    from news_fetcher import generate_post_idea
+    idea = generate_post_idea(os.getenv("GITHUB_USERNAME"))
+    await update.message.reply_text(
+        f"💡 *LinkedIn Post Idea:*\n\n_{idea}_\n\n"
+        f"Want another angle? Send /postidea again.",
+        parse_mode='Markdown'
+    )
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global TELEGRAM_CHAT_ID
 
@@ -285,7 +302,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• \"Applied to VectorShift for ML Engineer\"\n"
             "• \"Capstone submission on 15th July 2026\"\n"
             "• \"Got rejected from Peakflo\"\n\n"
-            "Or use /applications, /deadlines, /summary, /brief"
+            "Or use /applications, /deadlines, /summary, /brief, /postidea"
         )
 
 
@@ -312,16 +329,12 @@ def run_health_server():
     loop.run_forever()
 
 
-async def post_init(application: Application):
-    scheduler = create_scheduler()
-    scheduler.start()
-    logger.info("Scheduler started")
-
-
 def main():
     threading.Thread(target=run_health_server, daemon=True).start()
 
-    application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).post_init(post_init).build()
+    application = Application.builder().token(
+        os.getenv("TELEGRAM_BOT_TOKEN")
+    ).post_init(post_init).build()
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("applications", applications_command))
@@ -330,6 +343,7 @@ def main():
     application.add_handler(CommandHandler("done", done_command))
     application.add_handler(CommandHandler("summary", summary_command))
     application.add_handler(CommandHandler("brief", brief_command))
+    application.add_handler(CommandHandler("postidea", postidea_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
 

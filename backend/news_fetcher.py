@@ -3,7 +3,6 @@ import requests
 import logging
 import os
 from datetime import datetime, timedelta
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +26,11 @@ RSS_FEEDS = {
     ]
 }
 
+
 def fetch_feed_items(url: str, max_items: int = 3) -> list:
     try:
         feed = feedparser.parse(url)
         items = []
-        cutoff = datetime.now() - timedelta(days=1)
 
         for entry in feed.entries[:max_items * 2]:
             title = entry.get('title', '').strip()
@@ -54,6 +53,7 @@ def fetch_feed_items(url: str, max_items: int = 3) -> list:
     except Exception as e:
         logger.error(f"Error fetching feed {url}: {e}")
         return []
+
 
 def summarize_with_groq(items: list, category: str) -> str:
     if not items:
@@ -94,12 +94,13 @@ News items:
         logger.error(f"Groq summarization failed: {e}")
         return None
 
+
 def fetch_daily_brief() -> str:
     message = "📰 *Daily AI/ML Brief*\n\n"
     sections = {
-    "🤖 AI Companies": "ai_companies",
-    "🇮🇳 India Tech": "india_tech",
-    "🛠 Dev Builds": "dev_builds"
+        "🤖 AI Companies": "ai_companies",
+        "🇮🇳 India Tech": "india_tech",
+        "🛠 Dev Builds": "dev_builds"
     }
 
     any_content = False
@@ -127,3 +128,76 @@ def fetch_daily_brief() -> str:
 
     message += "_Sources: OpenAI, Anthropic, DeepMind, Meta AI, YourStory, Inc42, HN, Dev.to_"
     return message
+
+
+def generate_post_idea(github_username: str) -> str:
+    # Step 1: Get latest GitHub activity
+    try:
+        response = requests.get(
+            f"https://api.github.com/users/{github_username}/events/public",
+            timeout=10
+        )
+        events = response.json()
+
+        recent_context = []
+        for event in events[:10]:
+            if event.get('type') == 'PushEvent':
+                repo = event.get('repo', {}).get('name', '').replace(f'{github_username}/', '')
+                commits = event.get('payload', {}).get('commits', [])
+                for commit in commits[:2]:
+                    message = commit.get('message', '').split('\n')[0]
+                    if message:
+                        recent_context.append(f"Repo: {repo} — Commit: {message}")
+            if len(recent_context) >= 3:
+                break
+
+        github_context = "\n".join(recent_context) if recent_context else "No recent commits found"
+
+    except Exception as e:
+        logger.error(f"GitHub fetch failed: {e}")
+        github_context = "Could not fetch GitHub activity"
+
+    # Step 2: Generate post idea with Groq
+    prompt = f"""You are helping an AI/ML student in India generate a LinkedIn post idea.
+
+Their recent GitHub activity:
+{github_context}
+
+Their projects include:
+- Sanjeevani AI: two-stage LLM pipeline (Llama 4 Scout for OCR + Llama 3.3 70B for medical analysis), multilingual TTS across 22 Indian languages, rotating API key pool for Groq + NVIDIA NIM, fuzzy matching on 2.5 lakh+ medicine dataset
+- ClearTriage: MERN + FastAPI, SHAP-based explainable triage system
+- AlgoForge: Next.js + Supabase + Judge0 + BullMQ, community DSA platform
+- PersonalOS Agent: Telegram bot with NLP parsing, Neon Postgres, APScheduler
+
+Generate ONE specific LinkedIn post idea based on their recent activity.
+Rules:
+- Be specific, not generic ("How I built X" not "Thoughts on AI")
+- Reference actual technical details from their work
+- Should be something only they could write, not anyone else
+- One sentence, under 25 words
+- No hashtags, no emojis
+
+Return only the post idea, nothing else."""
+
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.1-8b-instant",
+                "max_tokens": 100,
+                "temperature": 0.9,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            },
+            timeout=15
+        )
+        result = response.json()
+        return result["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.error(f"Groq post idea generation failed: {e}")
+        return "Could not generate post idea right now. Try again."
