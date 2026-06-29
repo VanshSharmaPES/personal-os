@@ -158,26 +158,33 @@ def generate_post_idea(github_username: str) -> str:
         github_context = "Could not fetch GitHub activity"
 
     # Step 2: Generate post idea with Groq
-    prompt = f"""You are helping an AI/ML student in India generate a LinkedIn post idea.
+   
 
-Their recent GitHub activity:
-{github_context}
+    prompt = f"""You are a LinkedIn ghostwriter for an AI/ML student in India who builds production systems.
 
-Their projects include:
-- Sanjeevani AI: two-stage LLM pipeline (Llama 4 Scout for OCR + Llama 3.3 70B for medical analysis), multilingual TTS across 22 Indian languages, rotating API key pool for Groq + NVIDIA NIM, fuzzy matching on 2.5 lakh+ medicine dataset
-- ClearTriage: MERN + FastAPI, SHAP-based explainable triage system
-- AlgoForge: Next.js + Supabase + Judge0 + BullMQ, community DSA platform
-- PersonalOS Agent: Telegram bot with NLP parsing, Neon Postgres, APScheduler
+    Their recent GitHub activity:
+    {github_context}
 
-Generate ONE specific LinkedIn post idea based on their recent activity.
-Rules:
-- Be specific, not generic ("How I built X" not "Thoughts on AI")
-- Reference actual technical details from their work
-- Should be something only they could write, not anyone else
-- One sentence, under 25 words
-- No hashtags, no emojis
+    Their projects:
+    - Sanjeevani AI: two-stage LLM pipeline (Llama 4 Scout for OCR + Llama 3.3 70B for medical analysis), multilingual TTS across 22 Indian languages, rotating API key pool for Groq + NVIDIA NIM, fuzzy matching on 2.5 lakh+ medicine dataset, F1 scores: Medicine 0.809, Overall 0.905
+    - ClearTriage: MERN + FastAPI, SHAP-based explainable triage system
+    - AlgoForge: Next.js + Supabase + Judge0 + BullMQ, community DSA platform
+    - PersonalOS Agent: Telegram bot with NLP parsing, Neon Postgres, APScheduler
 
-Return only the post idea, nothing else."""
+    Write a complete LinkedIn post based on their recent GitHub activity and projects.
+
+    Rules:
+    - Start with a hook — one punchy line that makes someone stop scrolling
+    - 150-200 words total
+    - Share one specific technical insight or lesson learned
+    - Be first-person, authentic, student builder voice — not corporate
+    - Include 1-2 specific numbers or metrics where relevant
+    - End with one genuine question to drive comments
+    - No generic phrases like "excited to share" or "humbled"
+    - No more than 4 hashtags at the end
+    - No emojis except sparingly (max 2)
+
+    Return only the post text, nothing else."""
 
     try:
         response = requests.post(
