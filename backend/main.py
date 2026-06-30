@@ -305,6 +305,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Or use /applications, /deadlines, /summary, /brief, /postidea"
         )
 
+async def digest_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Triggering morning digest manually... ⏳")
+    from scheduler import send_morning_digest
+    await send_morning_digest()
+
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Update {update} caused error {context.error}")
@@ -342,6 +347,7 @@ def main():
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("done", done_command))
     application.add_handler(CommandHandler("summary", summary_command))
+    application.add_handler(CommandHandler("digest", digest_command))
     application.add_handler(CommandHandler("brief", brief_command))
     application.add_handler(CommandHandler("postidea", postidea_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

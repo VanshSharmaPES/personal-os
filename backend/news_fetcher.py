@@ -195,7 +195,7 @@ def generate_post_idea(github_username: str) -> str:
             },
             json={
                 "model": "llama-3.1-8b-instant",
-                "max_tokens": 100,
+                "max_tokens": 400,
                 "temperature": 0.9,
                 "messages": [
                     {"role": "user", "content": prompt}
