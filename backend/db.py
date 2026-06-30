@@ -141,3 +141,23 @@ def upsert_activity(github_date, linkedin_date):
     conn.commit()
     cur.close()
     conn.close()
+
+def is_article_shown(link):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM shown_articles WHERE link = %s", (link,))
+    exists = cur.fetchone() is not None
+    cur.close()
+    conn.close()
+    return exists
+
+def mark_article_shown(link):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO shown_articles (link) VALUES (%s) ON CONFLICT (link) DO NOTHING",
+        (link,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()

@@ -3,28 +3,27 @@ import requests
 import logging
 import os
 from datetime import datetime, timedelta
+from db import is_article_shown, mark_article_shown
 
 logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 RSS_FEEDS = {
-    "ai_companies": [
-        "https://openai.com/blog/rss.xml",
-        "https://www.anthropic.com/rss.xml",
-        "https://deepmind.google/blog/rss.xml",
-        "https://ai.meta.com/blog/rss/",
+    "world": [
+        "https://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://feeds.npr.org/1004/rss.xml",
     ],
-    "india_tech": [
-        "https://yourstory.com/tag/artificial-intelligence/feed",
-        "https://inc42.com/feed/",
+    "business": [
+        "https://feeds.bbci.co.uk/news/business/rss.xml",
+        "https://www.reutersagency.com/feed/?best-topics=business-finance",
     ],
-    "dev_builds": [
-        "https://hnrss.org/show?points=50",
-        "https://dev.to/feed/tag/ai",
-        "https://towardsdatascience.com/feed",
+    "india": [
+        "https://feeds.bbci.co.uk/news/world/asia/india/rss.xml",
+        "https://www.thehindu.com/news/national/feeder/default.rss",
     ]
 }
+
 
 
 def fetch_feed_items(url: str, max_items: int = 3) -> list:
@@ -32,12 +31,14 @@ def fetch_feed_items(url: str, max_items: int = 3) -> list:
         feed = feedparser.parse(url)
         items = []
 
-        for entry in feed.entries[:max_items * 2]:
+        for entry in feed.entries[:max_items * 3]:
             title = entry.get('title', '').strip()
             link = entry.get('link', '')
             summary = entry.get('summary', entry.get('description', ''))[:300]
 
             if not title or not link:
+                continue
+            if is_article_shown(link):
                 continue
 
             items.append({
@@ -45,6 +46,7 @@ def fetch_feed_items(url: str, max_items: int = 3) -> list:
                 'link': link,
                 'summary': summary
             })
+            mark_article_shown(link)
 
             if len(items) >= max_items:
                 break
@@ -64,8 +66,8 @@ def summarize_with_groq(items: list, category: str) -> str:
         for item in items
     ])
 
-    prompt = f"""Summarize these {category} news items for an AI/ML student in India.
-For each item write exactly one bullet point: start with the key insight, keep it under 20 words, be specific not vague.
+    prompt = f"""Summarize these {category} news items for someone who wants a quick, accurate daily briefing.
+For each item write exactly one bullet point: lead with the key fact, keep it under 20 words, be specific and neutral — no spin, no opinion.
 Return only the bullet points, no headers, no intro text.
 
 News items:
@@ -98,9 +100,9 @@ News items:
 def fetch_daily_brief() -> str:
     message = "📰 *Daily AI/ML Brief*\n\n"
     sections = {
-        "🤖 AI Companies": "ai_companies",
-        "🇮🇳 India Tech": "india_tech",
-        "🛠 Dev Builds": "dev_builds"
+    "🌍 World": "world",
+    "💰 Business": "business",
+    "🇮🇳 India": "india"
     }
 
     any_content = False
@@ -126,7 +128,7 @@ def fetch_daily_brief() -> str:
     if not any_content:
         return None
 
-    message += "_Sources: OpenAI, Anthropic, DeepMind, Meta AI, YourStory, Inc42, HN, Dev.to_"
+    message += "_Sources: BBC, NPR, Reuters, The Hindu_"
     return message
 
 
