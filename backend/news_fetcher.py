@@ -98,7 +98,7 @@ News items:
 
 
 def fetch_daily_brief() -> str:
-    message = "📰 *Daily AI/ML Brief*\n\n"
+    message = "📰 *Daily World News Brief*\n\n"
     sections = {
     "🌍 World": "world",
     "💰 Business": "business",

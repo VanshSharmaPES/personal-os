@@ -202,7 +202,7 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def brief_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Fetching today's AI/ML brief... ⏳")
+    await update.message.reply_text("Fetching today's World brief... ⏳")
     from news_fetcher import fetch_daily_brief
     brief = fetch_daily_brief()
     if brief:
