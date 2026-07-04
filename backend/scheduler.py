@@ -25,19 +25,26 @@ def send_telegram_message(text: str):
     if not TELEGRAM_CHAT_ID or not TELEGRAM_TOKEN:
         logger.error("Telegram credentials not set")
         return
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-            json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": text,
-                "parse_mode": "Markdown"
-            },
-            timeout=10
-        )
-    except Exception as e:
-        logger.error(f"Failed to send Telegram message: {e}")
-
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "text": text,
+                    "parse_mode": "Markdown"
+                },
+                timeout=30
+            )
+            if response.status_code != 200:
+                logger.error(f"Telegram send failed: {response.status_code} - {response.text}")
+            else:
+                logger.info("Telegram message sent successfully")
+            return
+        except Exception as e:
+            logger.error(f"Attempt {attempt + 1} failed: {e}")
+            if attempt == 2:
+                logger.error("All 3 attempts failed, giving up")
 
 async def send_morning_digest():
     logger.info("Running morning digest...")
