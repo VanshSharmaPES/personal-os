@@ -25,32 +25,28 @@ def get_latest_post_date(linkedin_url: str, apify_token: str) -> Optional[date]:
 
         client = ApifyClient(apify_token)
 
-        # Run the LinkedIn profile scraper actor
+        # Run the LinkedIn posts actor
         run_input = {
-            "url": linkedin_url,
-            "includePosts": True,
-            "maxPosts": 10  # Only need recent posts
+            "profileUrls": [linkedin_url],
+            "maxPostsPerProfile": 10  # Only need recent posts
         }
 
-        # Start the actor run
-        actor_run = client.actor("apify/linkedin-profile-scraper").call(run_input=run_input)
-
-        # Wait for completion
-        finished_run = client.wait_for_finish(actor_run)
+        # Start the actor run and wait for completion
+        finished_run = client.actor("johnvc/linkedin-posts-api").call(run_input=run_input)
 
         if not finished_run:
             logger.error("LinkedIn scraper did not finish")
             return None
 
         # Get the results
-        dataset_id = finished_run.get('defaultDatasetId')
+        dataset_id = finished_run.default_dataset_id
         if not dataset_id:
             logger.error("No dataset ID in scraper response")
             return None
 
         # Fetch items from dataset
         dataset = client.dataset(dataset_id)
-        items = dataset.list_items()
+        items = dataset.list_items().items
 
         if not items or len(items) == 0:
             logger.info(f"No posts found for {linkedin_url}")
@@ -59,10 +55,10 @@ def get_latest_post_date(linkedin_url: str, apify_token: str) -> Optional[date]:
         # Extract post dates and find the most recent
         latest_post_date = None
         for item in items:
-            posts = item.get('posts', [])
+            posts = item.get('posts') or [item]
             if posts:
                 for post in posts:
-                    post_date_str = post.get('date') or post.get('postedAt')
+                    post_date_str = post.get('date') or post.get('postedAt') or post.get('datePosted')
                     if post_date_str:
                         try:
                             post_date = parse_linkedin_date(post_date_str)
